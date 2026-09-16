@@ -273,7 +273,7 @@ $$
 w_i=\mathrm{clip}\left(\left(\frac{\bar{n}}{\max(n_i,1)}\right)^p,\frac{1}{c},c\right),
 $$
 
-并对全部权重执行均值归一化。默认 $p=0.5$、$c=10$。加权重建损失为：
+并对全部权重执行均值归一化。默认 $p=0.5,\ c=10$。加权重建损失为：
 
 $$
 \mathcal{L}_{\mathrm{rec}}=\frac{\sum_i w_i\|f_i-\hat{f}_i\|_2^2}{\sum_i w_i}.
@@ -325,7 +325,7 @@ $$
 +\lambda_d\mathcal{L}_{\mathrm{div}}.
 $$
 
-本实验使用 $\lambda_c=0.25$、$\lambda_b=0.25$、$\lambda_u=0.5$、$\lambda_h=1$、$\lambda_e=0.05$、$\lambda_d=5$。码本使用 MiniBatchKMeans 初始化，以减少初始阶段随机码字造成的无效分配。
+本实验使用 $\lambda_c=0.25,\ \lambda_b=0.25,\ \lambda_u=0.5,\ \lambda_h=1,\ \lambda_e=0.05,\ \lambda_d=5$。码本使用 MiniBatchKMeans 初始化，以减少初始阶段随机码字造成的无效分配。
 
 ### 4.4 低利用码字的恢复
 
@@ -419,7 +419,7 @@ J(i,a,s)=
 +\lambda_{\mathrm{suffix}}s.
 $$
 
-本实验设置 $\lambda_{\mathrm{rec}}=1$、$\lambda_{\mathrm{sem}}=0.2$、$\lambda_{\mathrm{beh}}=0.1$、$\lambda_{\mathrm{clu}}=0.1$、$\lambda_{\mathrm{usage}}=0.02$，后缀系数为 $0.001$。候选集合由原始码字和每层 top-8 的替代码字组成，每个原始码字最多考虑 32 个后缀索引。
+本实验设置 $\lambda_{\mathrm{rec}}=1,\ \lambda_{\mathrm{sem}}=0.2,\ \lambda_{\mathrm{beh}}=0.1,\ \lambda_{\mathrm{clu}}=0.1,\ \lambda_{\mathrm{usage}}=0.02,\ \lambda_{\mathrm{suffix}}=0.001$。候选集合由原始码字和每层 top-8 的替代码字组成，每个原始码字最多考虑 32 个后缀索引。
 
 BC-GSID 需要同时满足两个约束：
 
@@ -522,7 +522,7 @@ $$
 +\lambda_{\mathrm{rec}}\mathcal{L}_{\mathrm{rec}}.
 $$
 
-本实验使用 $\lambda_{\mathrm{next}}=1$、$\lambda_{\mathrm{rank}}=0.1$、$\lambda_{\mathrm{align}}=0.1$、$\lambda_{\mathrm{prefix}}=0.05$、$\lambda_{\mathrm{rec}}=1$。码本参数在联合训练中冻结，编码器使用 $1\times10^{-4}$ 学习率，生成器同样使用 $1\times10^{-4}$ 学习率。
+本实验使用 $\lambda_{\mathrm{next}}=1,\ \lambda_{\mathrm{rank}}=0.1,\ \lambda_{\mathrm{align}}=0.1,\ \lambda_{\mathrm{prefix}}=0.05,\ \lambda_{\mathrm{rec}}=1$。码本参数在联合训练中冻结，编码器使用 `1e-4` 学习率，生成器同样使用 `1e-4` 学习率。
 
 ### 4.11 解码与评价指标
 
@@ -793,6 +793,7 @@ UCG 和 Joint 的当前证据较弱。真实 UCG 相对上下文打乱的 Recall
 6. Hou Y, Li J, Fu X, et al. Bridging Language and Items for Retrieval and Recommendation: Benchmarking LLMs as Semantic Encoders[J]. arXiv preprint, 2024. arXiv: [2403.03952](https://arxiv.org/abs/2403.03952). Dataset: [Amazon Reviews 2023](https://amazon-reviews-2023.github.io/).
 7. McAuley J, Targett C, Shi Q, et al. Image-based Recommendations on Styles and Substitutes[C]. Proceedings of the 38th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2015: 43-52. DOI: [10.1145/2766462.2767755](https://doi.org/10.1145/2766462.2767755).
 8. Ni J, Ábrego G H, Constant N, et al. Sentence-T5: Scalable Sentence Encoders from Pre-trained Text-to-Text Models[J]. Findings of ACL, 2022. arXiv: [2108.08877](https://arxiv.org/abs/2108.08877).
+
 
 
 
