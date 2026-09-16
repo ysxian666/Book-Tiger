@@ -130,6 +130,71 @@ TIGER 将推荐召回建模为下一商品 Semantic ID 的自回归生成，为�
 
 生成器训练耗时包含每个设置内部的验证损失计算和快速 Recall 估计，评价耗时包含标准 beam、前缀树约束解码和 500 用户穷举排序。上述合计不包含尚未单独记录耗时的原始数据流式预处理和前向特征提取。
 
+### 3.6 运行说明
+
+本实验推荐在 Linux 与 CUDA 环境中运行，Python 版本要求 3.10 及以上。为适配 RTX 5090 的 `sm_120` 计算能力，应先安装支持该架构的 PyTorch CUDA 版本，再安装项目依赖。示例安装流程如下：
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install "torch>=2.8" --index-url https://download.pytorch.org/whl/cu128
+python -m pip install -e .
+python -m pip install pytest
+```
+
+项目默认从 `data/raw` 读取官方评论和 metadata 文件。若本地已有完整文件，脚本会复用或建立硬链接；若本地不存在，脚本会从官方地址下载。数据文件合计约 10.4 GB，环境检查默认还要求可用磁盘空间不少于 25 GB。
+
+```bash
+python scripts/link_or_download_data.py --root . --strict-size
+```
+
+环境检查需要 CUDA、BF16、RTX 5090 对应的 `sm_120` 支持、两个原始数据文件以及足够的剩余磁盘空间。配置路径可通过通配符自动定位，避免手动选择：
+
+```bash
+CONFIG="$(find configs -maxdepth 1 -name '*_5090.json' -print -quit)"
+python scripts/check_env.py --config "$CONFIG"
+```
+
+完整流程由若干可独立执行的阶段组成。每个阶段会复用已经存在且格式正确的产物；需要重新计算时可在命令中增加 `--force`。
+
+| 阶段 | 主要工作 | 主要产物 |
+|---|---|---|
+| `preprocess` | 流式读取评论与 metadata，执行 5-core、用户抽样、商品目录和时间划分 | 交互表、商品目录、训练序列和数据统计 |
+| `features` | 构建文本特征、协同特征和行为画像 | 文本矩阵、协同矩阵和行为画像 |
+| `rqvae` | 训练多视图 RQ-VAE 并记录码本使用情况 | RQ-VAE 检查点与训练记录 |
+| `sid` | 构造后缀 SID 和 BC-GSID | 基础 SID、行为感知 SID 及分配报告 |
+| `generators` | 训练 O1-O5 生成器 | 各设置检查点、验证记录和训练指标 |
+| `evaluate` | 执行标准 beam、Trie beam、穷举排序和指标汇总 | 各设置评价文件、比较表和结果报告 |
+
+分阶段执行时，可先定位实验入口，再将 `--stage` 替换为表中所需阶段：
+
+```bash
+export PYTHONPATH="$PWD/code"
+CONFIG="$(find configs -maxdepth 1 -name '*_5090.json' -print -quit)"
+RUNNER="$(find scripts -maxdepth 1 -name 'run_*.py' ! -name 'run_controls.py' -print -quit)"
+python "$RUNNER" --config "$CONFIG" --stage preprocess
+```
+
+完整主实验脚本会自动完成数据检查、环境检查和全部阶段，适合在 `tmux` 或持久化日志环境中运行：
+
+```bash
+nohup bash "$(find runners -maxdepth 1 -name 'run_*5090.sh' -print -quit)" > run.log 2>&1 &
+tail -f run.log
+```
+
+主实验完成后，可单独运行 C1-C4 控制实验：
+
+```bash
+bash runners/run_controls_5090.sh
+```
+
+所有生成数据和结果均写入主配置中的 `paths.data_dir` 与 `paths.run_dir`。这两个目录、原始数据文件、缓存和模型检查点均由 `.gitignore` 排除，因此从 GitHub 克隆后需要先准备数据，再按阶段重新生成。提交代码前可运行以下测试：
+
+```bash
+python -m pytest -q
+```
+
+测试覆盖配置加载、数据预处理辅助逻辑、RQ-VAE、Semantic ID、Trie 解码、生成器前向计算和控制实验辅助函数。若只需检查某个阶段而不继续运行，可在命令结尾增加 `--stage` 对应的阶段名，并通过日志确认是否产出预期文件。
+
 ## 4. 理论说明
 
 本章按照数据进入模型的顺序，依次说明多视图融合、RQ-VAE、Semantic ID 构造、行为感知分配、用户上下文编码、联合训练、解码与评价指标。
@@ -728,6 +793,7 @@ UCG 和 Joint 的当前证据较弱。真实 UCG 相对上下文打乱的 Recall
 6. Hou Y, Li J, Fu X, et al. Bridging Language and Items for Retrieval and Recommendation: Benchmarking LLMs as Semantic Encoders[J]. arXiv preprint, 2024. arXiv: [2403.03952](https://arxiv.org/abs/2403.03952). Dataset: [Amazon Reviews 2023](https://amazon-reviews-2023.github.io/).
 7. McAuley J, Targett C, Shi Q, et al. Image-based Recommendations on Styles and Substitutes[C]. Proceedings of the 38th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2015: 43-52. DOI: [10.1145/2766462.2767755](https://doi.org/10.1145/2766462.2767755).
 8. Ni J, Ábrego G H, Constant N, et al. Sentence-T5: Scalable Sentence Encoders from Pre-trained Text-to-Text Models[J]. Findings of ACL, 2022. arXiv: [2108.08877](https://arxiv.org/abs/2108.08877).
+
 
 
 
