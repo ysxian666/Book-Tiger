@@ -1,0 +1,22 @@
+# Official raw data
+data/raw/*.gz
+data/raw/*.part
+
+# Generated experiment data and checkpoints
+data/overnight/
+results/overnight/
+cache/
+.cache/
+
+# Python and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local debug and packaging
+tmp_debug/
+build/
+dist/
+*.egg-info/
