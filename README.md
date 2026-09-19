@@ -1,5 +1,18 @@
 # 面向 Amazon Reviews 2023 Books 的 TIGER 数据构建、Semantic ID 分配与用户条件化生成研究
 
+## 目录
+
+- [摘要](#摘要)
+- [代码结构](#代码结构)
+- [1. 研究背景](#1-研究背景)
+- [2. 研究目的](#2-研究目的)
+- [3. 数据说明](#3-数据说明)
+- [4. 理论说明](#4-理论说明)
+- [5. 实验设计](#5-实验设计)
+- [6. 结果分析](#6-结果分析)
+- [7. 研究总结](#7-研究总结)
+- [8. 参考文献](#8-参考文献)
+
 ## 摘要
 
 TIGER 将推荐召回建模为下一商品 Semantic ID 的自回归生成，为大规模候选检索提供了不同于向量近邻搜索的实现路径。本实验以标准 TIGER 为研究起点，在 Amazon Reviews 2023 Books 上重新构建数据与训练协议，并围绕 RQ-VAE 码本健康、行为感知 Semantic ID 全局分配、用户条件化生成及生成器联合优化展开研究。数据部分采用完整评论流处理、全局 5-core 过滤、按训练集频次确定 50K 商品目录以及按用户时间顺序的 leave-one-out 划分，最终得到 1,134,600 条交互、102,167 名用户和 49,765 个商品。模型部分包括三层 RQ-VAE、后缀 Semantic ID、Behavior-Cluster-Aware Global Semantic ID Assignment（BC-GSID）、User-Conditioned Generation（UCG）及排序感知联合微调。
@@ -7,6 +20,55 @@ TIGER 将推荐召回建模为下一商品 Semantic ID 的自回归生成，为�
 本实验为 seed 42 的单种子实验，使用 NVIDIA GeForce RTX 5090，在统一数据、SID 长度、模型规模和解码预算下比较 O1-O5 五种设置，并通过 C1-C4 控制实验分析行为信息和用户上下文的作用。结果显示，O4 的 Recall@20 相对 O1 提高 58.3%，但其语义漂移也显著增大；C2 hard-semantic BC-GSID 在满足严格语义预算的条件下取得较高 Recall@20，是当前较可辩护的方向性结果。用户条件化生成与联合微调尚未表现出稳定优势，因此本文以可复现实验档案和研究边界说明为主，不将单次结果解释为最终结论。
 
 **关键词：** 生成式推荐；TIGER；Semantic ID；RQ-VAE；行为感知分配；用户条件化生成；序列推荐
+
+## 代码结构
+
+仓库采用“可复用核心库 + 实验流水线 + 脚本入口 + 配置与文档”的组织方式。`code/tiger_rec` 提供可复用算法组件，`code/tiger_*` 负责把数据、RQ-VAE、SID、生成器和评价过程串联为完整实验。`configs` 保存固定实验和消融配置，`runners` 与 `scripts` 提供不同层次的运行入口。
+
+```text
+book_tiger/
+├── README.md                      # 项目说明、理论推导、实验设计与结果分析
+├── pyproject.toml                 # Python 包定义、依赖和测试配置
+├── configs/
+│   ├── *_5090.json                # 主实验配置：数据、RQ-VAE、SID、生成器和评价参数
+│   ├── baseline.json              # 标准基线配置
+│   ├── optimization1.json         # 码本健康优化配置
+│   └── ablations/                 # 参数扫描和消融实验配置
+├── code/
+│   ├── tiger_rec/                 # 可复用核心库
+│   │   ├── data/                  # 数据预处理、数据集与序列构造
+│   │   ├── features/              # 文本编码与协同 SVD 特征
+│   │   ├── semantic_id/           # RQ-VAE、Token Space、碰撞处理与 Trie
+│   │   ├── models/                # T5 生成器、序列基线和排序模型
+│   │   ├── decoding/              # 约束 beam search
+│   │   ├── retrieval/             # TIGER、传统召回和混合检索
+│   │   └── evaluation/            # 评价协议与指标
+│   └── tiger_*/                   # 实验流水线包
+│       ├── data.py                # 全量数据处理、抽样与时间划分
+│       ├── features.py            # 商品文本、协同和行为画像构建
+│       ├── rqvae_train.py         # RQ-VAE 训练与码本健康诊断
+│       ├── semantic_ids.py        # 后缀 SID、BC-GSID 与全局分配
+│       ├── generator_model.py     # T5 生成器与 UCG soft prefix
+│       ├── generator_train.py     # O1-O5 训练与检查点选择
+│       ├── decoding.py            # 标准 beam、Trie beam 与穷举排序
+│       ├── evaluate.py            # 召回、排序、漂移和系统指标
+│       ├── report.py              # 主实验和控制实验结果汇总
+│       └── pipeline.py            # 各阶段统一编排
+├── scripts/
+│   ├── check_env.py               # CUDA、BF16、数据和磁盘检查
+│   ├── link_or_download_data.py   # 官方数据复用、链接或下载
+│   ├── run_*.py                   # 实验流水线命令行入口
+│   └── run_controls.py            # C1-C4 控制实验入口
+├── runners/
+│   ├── run_*5090.sh               # 完整主实验运行脚本
+│   └── run_controls_5090.sh       # 控制实验运行脚本
+├── docs/                          # 实现映射、复现说明和发布检查
+├── tests/                         # 配置、数据、模型、SID 和报告测试
+├── data/                          # 原始数据与派生特征，运行时生成
+└── results/                       # 检查点、日志、指标和结果报告
+```
+
+该结构将底层算法、实验编排和运行入口分离：研究者可以单独修改 `tiger_rec` 中的算法组件，也可以通过实验流水线阶段替换数据、SID 或生成器配置，最后统一经过评价与报告模块输出结果。`data`、`results`、缓存和检查点不随 Git 仓库提交，需按“运行说明”重新生成。
 
 ## 1. 研究背景
 
@@ -793,6 +855,8 @@ UCG 和 Joint 的当前证据较弱。真实 UCG 相对上下文打乱的 Recall
 6. Hou Y, Li J, Fu X, et al. Bridging Language and Items for Retrieval and Recommendation: Benchmarking LLMs as Semantic Encoders[J]. arXiv preprint, 2024. arXiv: [2403.03952](https://arxiv.org/abs/2403.03952). Dataset: [Amazon Reviews 2023](https://amazon-reviews-2023.github.io/).
 7. McAuley J, Targett C, Shi Q, et al. Image-based Recommendations on Styles and Substitutes[C]. Proceedings of the 38th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2015: 43-52. DOI: [10.1145/2766462.2767755](https://doi.org/10.1145/2766462.2767755).
 8. Ni J, Ábrego G H, Constant N, et al. Sentence-T5: Scalable Sentence Encoders from Pre-trained Text-to-Text Models[J]. Findings of ACL, 2022. arXiv: [2108.08877](https://arxiv.org/abs/2108.08877).
+
+
 
 
 
